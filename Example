@@ -1,0 +1,1 @@
+curl "http://localhost:4702/search?q=rust"
