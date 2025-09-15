@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: Discovery Service API
+  version: "0.1.0"
+  description: |
+    Lightweight service registry, heartbeat, and discovery API for the Gitdigital Products ecosystem.
+    Provides register/deregister, heartbeat updates, discovery by name/tags, and search.
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+tags:
+  - name: registry
+    description: Service registration and discovery endpoints
+  - name: health
+    description: Heartbeat and health checking
+  - name: search
+    description: Keyword / tag search across registered services
+
+paths:
+  /:
+    get:
+      tags: [registry]
+      summary: Root / health
+      description: Returns a short message confirming service is running.
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Discovery Service is running 🚀
+
+  /register:
+    post:
+      tags: [registry]
+      summary: Register a service
+      description: Register or update a service in the registry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "200":
+          description: service registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        "400":
+          description: invalid input
+
+  /deregister/{name}:
+    delete:
+      tags: [registry]
+      summary: Deregister a service
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Service name to remove
+      responses:
+        "200":
+          description: service deregistered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: deregistered
+                  service:
+                    type: string
+        "404":
+          description: service not found
+
+  /heartbeat:
+    post:
+      tags: [health]
+      summary: Update heartbeat
+      description: Service pings to update last_seen timestamp and keep status healthy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        "200":
+          description: heartbeat updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: heartbeat updated
+                  service:
+                    $ref: '#/components/schemas/Service'
+
+  /discover/{name}:
+    get:
+      tags: [registry]
+      summary: Discover service by name
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: found service
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        "404":
+          description: not found
+
+  /services:
+    get:
+      tags: [registry]
+      summary: List all registered services
+      description: Return the full registry (in-memory).
+      responses:
+        "200":
+          description: list of services
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/Service'
+
+  /search:
+    get:
+      tags: [search]
+      summary: Search services by query
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Keyword to match against service name or tags
+      responses:
+        "200":
+          description: search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+components:
+  schemas:
+    Service:
+      type: object
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+          format: hostname
+        port:
+          type: integer
+          format: int32
+        tags:
+          type: array
+          items:
+            type: string
+        last_seen:
+          type: number
+          format: float
+          description: unix epoch seconds
+        status:
+          type: string
+          example: healthy
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - host
+        - port
+      properties:
+        name:
+          type: string
+          description: unique service name
+        host:
+          type: string
+          description: host or ip
+        port:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+
+    RegisterResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: registered
+        service:
+          $ref: '#/components/schemas/Service'
+
+    HeartbeatRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              $ref: '#/components/schemas/Service'
+        count:
+          type: integer
+          example: 2
+
+security: []
